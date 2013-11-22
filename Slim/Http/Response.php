@@ -35,67 +35,48 @@ namespace Slim\Http;
 /**
  * Response
  *
- * This class provides a simple interface around the HTTP response. Use this class
- * to build and inspect the current HTTP response before it is returned to the client:
- *
- * - The response status
- * - The response headers
- * - The response cookies
- * - The response body
+ * This is a simple abstraction over top an HTTP response. This
+ * provides methods to set the HTTP status, the HTTP headers,
+ * and the HTTP body.
  *
  * @package Slim
  * @author  Josh Lockhart
  * @since   1.0.0
  */
-class Response
+class Response implements \ArrayAccess, \Countable, \IteratorAggregate
 {
     /**
-     * Response status code
-     * @var int
+     * @var int HTTP status code
      */
     protected $status;
 
     /**
-     * Response headers
      * @var \Slim\Http\Headers
-     * @api
      */
     public $headers;
 
     /**
-     * Response cookies
      * @var \Slim\Http\Cookies
-     * @api
      */
     public $cookies;
 
     /**
-     * Response body
-     * @var string|resource
+     * @var string HTTP response body
      */
     protected $body;
 
     /**
-     * Is this response a resource stream?
-     * @var bool
-     */
-    protected $isStream;
-
-    /**
-     * Response body length
-     * @var int
+     * @var int Length of HTTP response body
      */
     protected $length;
 
     /**
-     * Response codes and associated messages
-     * @var array
+     * @var array HTTP response codes and messages
      */
     protected static $messages = array(
         //Informational 1xx
         100 => '100 Continue',
         101 => '101 Switching Protocols',
-        102 => '102 Processing',
         //Successful 2xx
         200 => '200 OK',
         201 => '201 Created',
@@ -104,9 +85,6 @@ class Response
         204 => '204 No Content',
         205 => '205 Reset Content',
         206 => '206 Partial Content',
-        207 => '207 Multi-Status',
-        208 => '208 Already Reported',
-        226 => '226 IM Used',
         //Redirection 3xx
         300 => '300 Multiple Choices',
         301 => '301 Moved Permanently',
@@ -116,7 +94,6 @@ class Response
         305 => '305 Use Proxy',
         306 => '306 (Unused)',
         307 => '307 Temporary Redirect',
-        308 => '308 Permanent Redirect',
         //Client Error 4xx
         400 => '400 Bad Request',
         401 => '401 Unauthorized',
@@ -138,31 +115,20 @@ class Response
         417 => '417 Expectation Failed',
         422 => '422 Unprocessable Entity',
         423 => '423 Locked',
-        424 => '424 Failed Dependency',
-        426 => '426 Upgrade Required',
-        428 => '428 Precondition Required',
-        429 => '429 Too Many Requests',
-        431 => '431 Request Header Fields Too Large',
         //Server Error 5xx
         500 => '500 Internal Server Error',
         501 => '501 Not Implemented',
         502 => '502 Bad Gateway',
         503 => '503 Service Unavailable',
         504 => '504 Gateway Timeout',
-        505 => '505 HTTP Version Not Supported',
-        506 => '506 Variant Also Negotiates',
-        507 => '507 Insufficient Storage',
-        508 => '508 Loop Detected',
-        510 => '510 Not Extended',
-        511 => '511 Network Authentication Required'
+        505 => '505 HTTP Version Not Supported'
     );
 
     /**
      * Constructor
-     * @param string                   $body    The HTTP response body
-     * @param int                      $status  The HTTP response status
+     * @param string                   $body   The HTTP response body
+     * @param int                      $status The HTTP response status
      * @param \Slim\Http\Headers|array $headers The HTTP response headers
-     * @api
      */
     public function __construct($body = '', $status = 200, $headers = array())
     {
@@ -170,66 +136,94 @@ class Response
         $this->headers = new \Slim\Http\Headers(array('Content-Type' => 'text/html'));
         $this->headers->replace($headers);
         $this->cookies = new \Slim\Http\Cookies();
-        $this->isStream = false;
-        $this->write($body, true);
+        $this->write($body);
     }
 
-    /**
-     * Get response status code
-     * @return int
-     * @api
-     */
     public function getStatus()
     {
         return $this->status;
     }
 
-    /**
-     * Set response status code
-     * @param int $status The HTTP status code
-     * @api
-     */
     public function setStatus($status)
     {
         $this->status = (int)$status;
     }
 
     /**
-     * Get response body
-     * @return string|resource
-     * @api
+     * DEPRECATION WARNING! Use `getStatus` or `setStatus` instead.
+     *
+     * Get and set status
+     * @param  int|null $status
+     * @return int
      */
+    public function status($status = null)
+    {
+        if (!is_null($status)) {
+            $this->status = (int) $status;
+        }
+
+        return $this->status;
+    }
+
+    /**
+     * DEPRECATION WARNING! Access `headers` property directly.
+     *
+     * Get and set header
+     * @param  string      $name  Header name
+     * @param  string|null $value Header value
+     * @return string      Header value
+     */
+    public function header($name, $value = null)
+    {
+        if (!is_null($value)) {
+            $this->headers->set($name, $value);
+        }
+
+        return $this->headers->get($name);
+    }
+
+    /**
+     * DEPRECATION WARNING! Access `headers` property directly.
+     *
+     * Get headers
+     * @return \Slim\Http\Headers
+     */
+    public function headers()
+    {
+        return $this->headers;
+    }
+
     public function getBody()
     {
         return $this->body;
     }
 
-    /**
-     * Set response body
-     * @param string $content The new response body
-     * @api
-     */
     public function setBody($content)
     {
         $this->write($content, true);
     }
 
     /**
-     * Is the response body a resource stream?
-     * @return bool
-     * @api
+     * DEPRECATION WARNING! use `getBody` or `setBody` instead.
+     *
+     * Get and set body
+     * @param  string|null $body Content of HTTP response body
+     * @return string
      */
-    public function isStream()
+    public function body($body = null)
     {
-        return $this->isStream;
+        if (!is_null($body)) {
+            $this->write($body, true);
+        }
+
+        return $this->body;
     }
 
     /**
-     * Append response body
+     * Append HTTP response body
      * @param  string   $body       Content to append to the current HTTP response body
      * @param  bool     $replace    Overwrite existing response body?
      * @return string               The updated HTTP response body
-     * @api
      */
     public function write($body, $replace = false)
     {
@@ -243,45 +237,35 @@ class Response
         return $this->body;
     }
 
-   /**
-    * Set the response body to a stream resource
-    * @param resource $handle Resource stream to send
-    * @api
-    */
-    public function stream($handle)
-    {
-        $this->isStream = true;
-        $this->body = $handle;
-    }
-
-    /**
-     * Get the response body stream resource
-     * @return resource|false
-     * @api
-     */
-    public function getStream()
-    {
-        return ($this->isStream) ? $this->body : false;
-    }
-
-    /**
-     * Get the response body length
-     * @return int
-     * @api
-     */
     public function getLength()
     {
         return $this->length;
     }
 
     /**
-     * Finalize response for delivery to client
+     * DEPRECATION WARNING! Use `getLength` or `write` or `body` instead.
      *
-     * Apply finaly preparations to the resposne object
-     * so that it is suitable for delivery to the client. This
-     * method returns an array of [status, headers, body].
+     * Get and set length
+     * @param  int|null $length
+     * @return int
+     */
+    public function length($length = null)
+    {
+        if (!is_null($length)) {
+            $this->length = (int) $length;
+        }
+
+        return $this->length;
+    }
+
+    /**
+     * Finalize
      *
-     * @return array[int $status, array $headers, string|resource $body]
+     * This prepares this response and returns an array
+     * of [status, headers, body]. This array is passed to outer middleware
+     * if available or directly to the Slim run method.
+     *
+     * @return array[int status, array headers, string body]
      */
     public function finalize()
     {
@@ -296,14 +280,60 @@ class Response
     }
 
     /**
+     * DEPRECATION WARNING! Access `cookies` property directly.
+     *
+     * Set cookie
+     *
+     * Instead of using PHP's `setcookie()` function, Slim manually constructs the HTTP `Set-Cookie`
+     * header on its own and delegates this responsibility to the `Slim_Http_Util` class. This
+     * response's header is passed by reference to the utility class and is directly modified. By not
+     * relying on PHP's native implementation, Slim allows middleware the opportunity to massage or
+     * analyze the raw header before the response is ultimately delivered to the HTTP client.
+     *
+     * @param string        $name    The name of the cookie
+     * @param string|array  $value   If string, the value of cookie; if array, properties for
+     *                               cookie including: value, expire, path, domain, secure, httponly
+     */
+    public function setCookie($name, $value)
+    {
+        // Util::setCookieHeader($this->header, $name, $value);
+        $this->cookies->set($name, $value);
+    }
+
+    /**
+     * DEPRECATION WARNING! Access `cookies` property directly.
+     *
+     * Delete cookie
+     *
+     * Instead of using PHP's `setcookie()` function, Slim manually constructs the HTTP `Set-Cookie`
+     * header on its own and delegates this responsibility to the `Slim_Http_Util` class. This
+     * response's header is passed by reference to the utility class and is directly modified. By not
+     * relying on PHP's native implementation, Slim allows middleware the opportunity to massage or
+     * analyze the raw header before the response is ultimately delivered to the HTTP client.
+     *
+     * This method will set a cookie with the given name that has an expiration time in the past; this will
+     * prompt the HTTP client to invalidate and remove the client-side cookie. Optionally, you may
+     * also pass a key/value array as the second argument. If the "domain" key is present in this
+     * array, only the Cookie with the given name AND domain will be removed. The invalidating cookie
+     * sent with this response will adopt all properties of the second argument.
+     *
+     * @param string $name     The name of the cookie
+     * @param array  $settings Properties for cookie including: value, expire, path, domain, secure, httponly
+     */
+    public function deleteCookie($name, $settings = array())
+    {
+        $this->cookies->remove($name, $settings);
+        // Util::deleteCookieHeader($this->header, $name, $value);
+    }
+
+    /**
      * Redirect
      *
-     * This method prepares the response object to return an HTTP Redirect response
-     * to the client.
+     * This method prepares this response to return an HTTP Redirect response
+     * to the HTTP client.
      *
      * @param string $url    The redirect destination
      * @param int    $status The redirect HTTP status code
-     * @api
      */
     public function redirect ($url, $status = 302)
     {
@@ -314,7 +344,6 @@ class Response
     /**
      * Helpers: Empty?
      * @return bool
-     * @api
      */
     public function isEmpty()
     {
@@ -324,7 +353,6 @@ class Response
     /**
      * Helpers: Informational?
      * @return bool
-     * @api
      */
     public function isInformational()
     {
@@ -334,7 +362,6 @@ class Response
     /**
      * Helpers: OK?
      * @return bool
-     * @api
      */
     public function isOk()
     {
@@ -344,7 +371,6 @@ class Response
     /**
      * Helpers: Successful?
      * @return bool
-     * @api
      */
     public function isSuccessful()
     {
@@ -354,7 +380,6 @@ class Response
     /**
      * Helpers: Redirect?
      * @return bool
-     * @api
      */
     public function isRedirect()
     {
@@ -364,7 +389,6 @@ class Response
     /**
      * Helpers: Redirection?
      * @return bool
-     * @api
      */
     public function isRedirection()
     {
@@ -374,7 +398,6 @@ class Response
     /**
      * Helpers: Forbidden?
      * @return bool
-     * @api
      */
     public function isForbidden()
     {
@@ -384,7 +407,6 @@ class Response
     /**
      * Helpers: Not Found?
      * @return bool
-     * @api
      */
     public function isNotFound()
     {
@@ -394,7 +416,6 @@ class Response
     /**
      * Helpers: Client error?
      * @return bool
-     * @api
      */
     public function isClientError()
     {
@@ -404,11 +425,74 @@ class Response
     /**
      * Helpers: Server Error?
      * @return bool
-     * @api
      */
     public function isServerError()
     {
         return $this->status >= 500 && $this->status < 600;
+    }
+
+    /**
+     * DEPRECATION WARNING! ArrayAccess interface will be removed from \Slim\Http\Response.
+     * Iterate `headers` or `cookies` properties directly.
+     */
+
+    /**
+     * Array Access: Offset Exists
+     */
+    public function offsetExists($offset)
+    {
+        return isset($this->headers[$offset]);
+    }
+
+    /**
+     * Array Access: Offset Get
+     */
+    public function offsetGet($offset)
+    {
+        return $this->headers[$offset];
+    }
+
+    /**
+     * Array Access: Offset Set
+     */
+    public function offsetSet($offset, $value)
+    {
+        $this->headers[$offset] = $value;
+    }
+
+    /**
+     * Array Access: Offset Unset
+     */
+    public function offsetUnset($offset)
+    {
+        unset($this->headers[$offset]);
+    }
+
+    /**
+     * DEPRECATION WARNING! Countable interface will be removed from \Slim\Http\Response.
+     * Call `count` on `headers` or `cookies` properties directly.
+     *
+     * Countable: Count
+     */
+    public function count()
+    {
+        return count($this->headers);
+    }
+
+    /**
+     * DEPRECATION WARNING! IteratorAggregate interface will be removed from \Slim\Http\Response.
+     * Iterate `headers` or `cookies` properties directly.
+     *
+     * Get Iterator
+     *
+     * This returns the contained `\Slim\Http\Headers` instance which
+     * is itself iterable.
+     *
+     * @return \Slim\Http\Headers
+     */
+    public function getIterator()
+    {
+        return $this->headers->getIterator();
     }
 
     /**
@@ -420,26 +504,8 @@ class Response
     {
         if (isset(self::$messages[$status])) {
             return self::$messages[$status];
+        } else {
+            return null;
         }
-
-        return null;
-    }
-
-    /**
-     * Convert response to string
-     * @return string
-     */
-    public function __toString()
-    {
-        $output = sprintf('HTTP/1.1 %s', static::getMessageForCode($this->getStatus())) . PHP_EOL;
-        foreach ($this->headers as $name => $value) {
-            $output .= sprintf('%s: %s', $name, $value) . PHP_EOL;
-        }
-        $body = $this->getBody();
-        if ($body) {
-            $output .= PHP_EOL . $body;
-        }
-
-        return $output;
     }
 }
